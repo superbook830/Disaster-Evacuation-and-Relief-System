@@ -1,0 +1,153 @@
+/* === NAVIGATION BAR STYLES === */
+.navbar {
+    background-color: #333; /* Dark background */
+    color: #fff;
+    padding: 10px 0;
+    width: 100%;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between; /* Pushes brand to left, menu to right */
+    align-items: center;
+}
+
+.nav-brand {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #fff;
+    text-decoration: none;
+}
+
+.nav-menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+
+.nav-menu li {
+    margin-left: 20px;
+}
+
+.nav-menu li a {
+    color: #fff;
+    text-decoration: none;
+    font-size: 1em;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+.nav-menu li a:hover {
+    background-color: #555;
+}
+
+/* This is the style for the active page link */
+.nav-menu li.nav-active a {
+    background-color: #007bff; /* Blue to match our buttons */
+    color: #fff;
+}
+
+
+/* === BODY & CONTAINER FIX === */
+/* We need to remove the margin from the body */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f7f6;
+    margin: 0; /* <-- REMOVE OLD MARGIN */
+    padding: 0; /* <-- REMOVE OLD PADDING */
+}
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f7f6;
+    margin: 0;
+    padding: 20px;
+}
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+h1, h2 {
+    color: #333;
+}
+
+/* Form Styles */
+.form-container, .table-container {
+    margin-bottom: 30px;
+}
+.form-container div {
+    margin-bottom: 15px;
+}
+.form-container label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+.form-container input[type="text"],
+.form-container textarea {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box; /* Important for 100% width */
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.form-container button {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.form-container button:hover {
+    background-color: #0056b3;
+}
+
+/* Message Styles */
+#form-message {
+    margin-top: 15px;
+    font-size: 1.1em;
+}
+.success {
+    color: green;
+}
+.error {
+    color: red;
+}
+
+/* Table Styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+table th, table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+table th {
+    background-color: #f2f2f2;
+    color: #333;
+}
+table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
