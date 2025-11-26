@@ -1,4 +1,6 @@
 <?php
+// api/resident/get_households.php
+
 // Error reporting
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -9,12 +11,14 @@ include '../config/db_connect.php';
 
 $households = array();
 
-// UPDATED QUERY: We added "WHERE h.is_deleted = 0"
+// UPDATED QUERY: Added 'h.latitude' and 'h.longitude'
 $sql = "SELECT 
             h.id, 
             h.household_head_name, 
             h.zone_purok, 
             h.address_notes, 
+            h.latitude, 
+            h.longitude,
             COUNT(r.id) as member_count
         FROM 
             households h
@@ -34,7 +38,7 @@ if ($result) {
         $households[] = $row;
     }
 } else {
-    // You can log the error if you want
+    // Log error if needed
     // error_log("SQL Error: " . $conn->error);
 }
 

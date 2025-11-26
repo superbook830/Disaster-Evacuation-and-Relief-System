@@ -9,12 +9,12 @@ $response = array('success' => false, 'message' => 'An unknown error occurred.')
 // --- Get data from YOUR form ---
 $first_name = $_POST['first_name'] ?? '';
 $last_name = $_POST['last_name'] ?? '';
-$address = $_POST['address'] ?? ''; // From your form
-$email = $_POST['email'] ?? ''; // From your form (will be the username)
+$address = $_POST['address'] ?? ''; 
+$email = $_POST['email'] ?? ''; 
 $password = $_POST['password'] ?? '';
-$password_confirm = $_POST['password_confirm'] ?? ''; // From your form
+$password_confirm = $_POST['password_confirm'] ?? ''; 
 
-// --- "No Loophole" Validation ---
+// --- Validation ---
 if (empty($first_name) || empty($last_name) || empty($address) || empty($email) || empty($password)) {
     $response['message'] = 'All fields are required.';
     echo json_encode($response);
@@ -40,43 +40,43 @@ if ($result->num_rows > 0) {
 }
 $stmt->close();
 
-// --- "No Loophole" Database Transaction ---
+// --- Database Transaction ---
 $conn->begin_transaction();
 
 try {
-    // --- Step 1: Create the Household ---
+    // --- Step 1: Create the Household (FIXED for YOUR DB) ---
     $full_name = $first_name . ' ' . $last_name;
+    
+    // FIX: Using 'address_notes' because that is what your DB has.
+    // FIX: Removed 'member_count' because your DB doesn't need it.
     $stmt_hh = $conn->prepare("INSERT INTO households (household_head_name, address_notes) VALUES (?, ?)");
-    $stmt_hh->bind_param("ss", $full_name, $address); // Use $address
+    $stmt_hh->bind_param("ss", $full_name, $address); 
     $stmt_hh->execute();
     $household_id = $conn->insert_id;
     $stmt_hh->close();
 
     // --- Step 2: Create the Resident ---
-    // We only have the names, which is fine. Birthdate/Gender are nullable.
+    // Links the resident to the household we just created
     $stmt_res = $conn->prepare("INSERT INTO residents (household_id, first_name, last_name) VALUES (?, ?, ?)");
     $stmt_res->bind_param("iss", $household_id, $first_name, $last_name);
     $stmt_res->execute();
     $resident_id = $conn->insert_id;
     $stmt_res->close();
 
-    // --- STEP 3 (REMOVED) ---
-    // The line that caused the error was here. It's gone now.
-    
     // --- Step 4: Create the User account ---
     $password_hash = password_hash($password, PASSWORD_DEFAULT);
     $role = 'resident';
     
     $stmt_user = $conn->prepare("INSERT INTO users (username, password_hash, full_name, role, resident_id) VALUES (?, ?, ?, ?, ?)");
-    $stmt_user->bind_param("ssssi", $email, $password_hash, $full_name, $role, $resident_id); // Use $email
+    $stmt_user->bind_param("ssssi", $email, $password_hash, $full_name, $role, $resident_id); 
     $stmt_user->execute();
     $user_id = $conn->insert_id;
     $stmt_user->close();
 
-    // --- Step 5: All good! Commit the changes ---
+    // --- Step 5: Commit the changes ---
     $conn->commit();
     
-    // --- Step 6: Log the new user in (This fixes the loop!) ---
+    // --- Step 6: Log the new user in ---
     $_SESSION['user_id'] = $user_id;
     $_SESSION['full_name'] = $full_name;
     $_SESSION['role'] = $role;

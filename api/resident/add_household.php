@@ -17,6 +17,14 @@ $household_head_name = trim($_POST['household_head_name'] ?? '');
 $zone_purok = $_POST['zone_purok'] ?? '';
 $address_notes = $_POST['address_notes'] ?? '';
 
+// --- NEW: Get Coordinates ---
+$latitude = $_POST['latitude'] ?? null;
+$longitude = $_POST['longitude'] ?? null;
+
+// Handle empty strings sent by the form (convert to NULL)
+if ($latitude === '') $latitude = null;
+if ($longitude === '') $longitude = null;
+
 // --- 2. Validation ---
 if (empty($household_head_name)) {
     $response['message'] = 'Household Head Name is required.';
@@ -34,12 +42,13 @@ $last_name = $name_parts[1] ?? '(no last name)';
 $conn->begin_transaction();
 
 try {
-    // --- Step A: Insert into households table ---
+    // --- Step A: Insert into households table (UPDATED WITH LAT/LONG) ---
     $stmt1 = $conn->prepare(
-        "INSERT INTO households (household_head_name, zone_purok, address_notes) 
-         VALUES (?, ?, ?)"
+        "INSERT INTO households (household_head_name, zone_purok, address_notes, latitude, longitude) 
+         VALUES (?, ?, ?, ?, ?)"
     );
-    $stmt1->bind_param("sss", $household_head_name, $zone_purok, $address_notes);
+    // "sssdd" = String, String, String, Double, Double
+    $stmt1->bind_param("sssdd", $household_head_name, $zone_purok, $address_notes, $latitude, $longitude);
     $stmt1->execute();
     
     // Get the ID of the new household we just created
@@ -51,6 +60,7 @@ try {
     }
 
     // --- Step B: Insert the head as a person into residents table ---
+    // (This logic remains exactly the same as your original)
     $stmt2 = $conn->prepare(
         "INSERT INTO residents (household_id, first_name, last_name) 
          VALUES (?, ?, ?)"
@@ -62,12 +72,11 @@ try {
     // --- Step C: If all good, commit changes ---
     $conn->commit();
     $response['success'] = true;
-    $response['message'] = 'Household and Head of Family created successfully!';
+    $response['message'] = 'Household created and Location pinned successfully!';
 
 } catch (Exception $e) {
     // --- Step D: If anything failed, roll back all changes ---
     $conn->rollback();
-    // --- THIS IS THE FIXED LINE ---
     $response['message'] = 'Transaction Error: ' . $e->getMessage();
 }
 

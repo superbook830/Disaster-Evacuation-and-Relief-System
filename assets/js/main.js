@@ -1,205 +1,201 @@
+// ==========================================
+// 1. GLOBAL SETUP (Must be at top)
+// ==========================================
+window.allHouseholdsData = []; // Global Data Storage
+var editMap, editMarker; // Edit Map Variables
 
+// GLOBAL EDIT FUNCTION
+window.editHousehold = function(id) {
+    console.log("Edit clicked for ID: " + id); 
+
+    var household = window.allHouseholdsData.find(h => h.id == id);
+
+    if (household) {
+        // Fill Text Inputs
+        $('#edit_household_id').val(household.id);
+        $('#edit_head_name').val(household.household_head_name);
+        $('#edit_zone').val(household.zone_purok);
+        $('#edit_address').val(household.address_notes);
+        
+        // Fill Coordinates (Hidden or Readonly inputs)
+        $('#edit_latitude').val(household.latitude);
+        $('#edit_longitude').val(household.longitude);
+
+        // Show Modal
+        $('#edit-household-modal').removeClass('hidden').addClass('flex');
+        $('body').addClass('overflow-hidden');
+
+        // Initialize Edit Map
+        setTimeout(function() {
+            initEditMap(household.latitude, household.longitude);
+        }, 300);
+    } else {
+        alert("Error: Data not found. Refresh page.");
+    }
+};
+
+// Helper: Initialize the Edit Map
+function initEditMap(lat, lng) {
+    if (editMap) {
+        editMap.invalidateSize();
+        if (lat && lng) {
+            var loc = [lat, lng];
+            editMap.setView(loc, 15);
+            setEditMarker(loc);
+        } else {
+            editMap.setView([6.9567, 126.2174], 13); // Default Mati
+            if (editMarker) editMap.removeLayer(editMarker);
+        }
+        return;
+    }
+
+    editMap = L.map('edit-household-map', {
+        center: [lat || 6.9567, lng || 126.2174],
+        zoom: 13, minZoom: 11,
+        maxBounds: [[6.80, 126.00], [7.15, 126.50]], 
+        maxBoundsViscosity: 1.0 
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '© OpenStreetMap'
+    }).addTo(editMap);
+
+    editMap.on('click', function(e) {
+        setEditMarker(e.latlng);
+    });
+
+    if (lat && lng) setEditMarker([lat, lng]);
+}
+
+function setEditMarker(location) {
+    if (editMarker) editMarker.setLatLng(location);
+    else editMarker = L.marker(location).addTo(editMap);
+    
+    // Handle both Leaflet object and Array formats
+    var lat = location.lat || location[0];
+    var lng = location.lng || location[1];
+    
+    $('#edit_latitude').val(lat.toFixed(8)); 
+    $('#edit_longitude').val(lng.toFixed(8));
+}
+
+// GLOBAL DELETE FUNCTION
+window.deleteHousehold = function(id, encodedName) {
+    var name = decodeURIComponent(encodedName);
+    console.log("Delete clicked for: " + name);
+
+    $('#delete-household-name').text(name);
+    $('#confirm-delete-btn').data('id', id);
+    $('#delete-confirm-modal').removeClass('hidden').addClass('flex');
+};
+
+
+// ==========================================
+// 2. DOCUMENT READY
+// ==========================================
 $(document).ready(function() {
+    console.log("Main.js Loaded - V106");
 
-    // --- Get Modal Elements ---
-    var editModal = $('#edit-household-modal');
-    var editFormMessage = $('#edit-form-message');
-    // --- NEW! Delete Modal Elements ---
-    var deleteModal = $('#delete-confirm-modal');
-    var deleteHouseholdName = $('#delete-household-name');
-    var confirmDeleteBtn = $('#confirm-delete-btn');
+    var map; // Add Map
+    var marker; // Add Marker
+    var addModal = $('#add-household-modal');
 
-    // --- 1. FUNCTION TO LOAD HOUSEHOLDS ---
+    // --- ADD MAP LOGIC ---
+    function initMap() {
+        if (map) return;
+        map = L.map('household-map', { center: [6.9567, 126.2174], zoom: 13, minZoom: 11 });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        map.on('click', function(e) {
+            if (marker) marker.setLatLng(e.latlng); else marker = L.marker(e.latlng).addTo(map);
+            $('#latitude').val(e.latlng.lat.toFixed(8)); $('#longitude').val(e.latlng.lng.toFixed(8));
+        });
+    }
+
+    // Open Add Modal
+    $('#open-add-household-btn').on('click', function() {
+        addModal.removeClass('hidden');
+        $('body').addClass('overflow-hidden');
+        setTimeout(function() { if (!map) initMap(); else map.invalidateSize(); }, 300);
+    });
+
+    // Close All Modals
+    $(document).on('click', '.close-modal-btn, #close-modal-btn, #cancel-modal-btn, .close-delete-modal-btn', function() {
+        $('.fixed').addClass('hidden').removeClass('flex');
+        $('body').removeClass('overflow-hidden');
+    });
+
+    // Load Table
     function loadHouseholds() {
         $.ajax({
-            url: 'api/resident/get_households.php',
-            type: 'GET',
-            dataType: 'json',
+            url: 'api/resident/get_households.php', type: 'GET', dataType: 'json',
             success: function(data) {
+                window.allHouseholdsData = data;
                 var tableBody = $('#households-table-body');
-                tableBody.empty(); // Clear old data
+                tableBody.empty(); 
 
-                data.forEach(function(household) {
-                    
-                    var manageLink = '<a href="household_details.php?id=' + household.id + 
-                                     '" class="text-primary font-medium hover:underline">Manage</a>';
-                    
-                    var editButton = '<button type="button" class="edit-btn text-yellow-400 font-medium hover:underline ml-4" ' +
-                                     'data-id="' + household.id + '" ' +
-                                     'data-name="' + escape(household.household_head_name) + '" ' +
-                                     'data-zone="' + escape(household.zone_purok) + '" ' +
-                                     'data-address="' + escape(household.address_notes) + '">' +
-                                     'Edit</button>';
-                    
-                    var deleteButton = '<button type="button" class="delete-btn text-red-400 font-medium hover:underline ml-4" ' +
-                                       'data-id="' + household.id + '" data-name="' + escape(household.household_head_name) + '">' +
-                                       'Delete</button>';
+                if (data.length === 0) { tableBody.html('<tr><td colspan="6" class="text-center py-8 text-slate-500">No data.</td></tr>'); return; }
 
-                    var row = '<tr class="border-t border-t-[#3b4754]">' +
-                        '<td class="h-[60px] px-4 py-2 text-[#9dabb9] text-sm">' + household.id + '</td>' +
-                        '<td class="h-[60px] px-4 py-2 text-white text-sm">' + household.household_head_name + '</td>' +
-                        '<td class="h-[60px] px-4 py-2 text-[#9dabb9] text-sm">' + household.zone_purok + '</td>' +
-                        '<td class="h-[60px] px-4 py-2 text-[#9dabb9] text-sm">' + household.member_count + '</td>' +
-                        '<td class="h-[60px] px-4 py-2 text-sm">' + manageLink + editButton + deleteButton + '</td>' +
-                        '</tr>';
-                    
+                data.forEach(function(h) {
+                    var loc = (h.latitude && h.longitude) ? 
+                        `<div class="flex items-center gap-2 text-xs text-slate-400 font-mono"><span class="material-symbols-outlined text-red-500 text-[16px]">location_on</span> ${parseFloat(h.latitude).toFixed(4)}, ${parseFloat(h.longitude).toFixed(4)}</div>` : 
+                        '<span class="text-slate-600 text-xs italic">No Pin</span>';
+                    var safeName = encodeURIComponent(h.household_head_name);
+
+                    // --- ALIGNMENT FIX HERE ---
+                    // 1. whitespace-nowrap: prevents buttons from wrapping to next line
+                    // 2. text-right: forces content to the right
+                    // 3. justify-end: ensures flex items stick to the right side
+                    var row = `
+                        <tr class="border-b border-[#283039] hover:bg-[#222831] transition-colors">
+                            <td class="px-6 py-4 text-[#9dabb9] text-sm">${h.id}</td>
+                            <td class="px-6 py-4 text-white font-medium text-sm">${h.household_head_name}</td>
+                            <td class="px-6 py-4 text-[#9dabb9] text-sm">${h.zone_purok || '-'}</td>
+                            <td class="px-6 py-4 text-center"><span class="bg-[#283039] text-white text-xs px-2 py-1 rounded border border-slate-600 font-bold">${h.member_count}</span></td>
+                            <td class="px-6 py-4">${loc}</td>
+                            
+                            <td class="px-6 py-4 text-right whitespace-nowrap">
+                                <div class="flex items-center justify-end gap-2">
+                                    <a href="household_details.php?id=${h.id}" class="text-primary text-xs font-bold uppercase hover:text-blue-400 mr-2">Manage</a>
+                                    
+                                    <button onclick="window.editHousehold(${h.id})" class="text-slate-400 hover:text-yellow-400 transition-colors p-1">
+                                        <span class="material-symbols-outlined text-[20px]">edit</span>
+                                    </button>
+
+                                    <button onclick="window.deleteHousehold(${h.id}, '${safeName}')" class="text-slate-400 hover:text-red-400 transition-colors p-1">
+                                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
                     tableBody.append(row);
                 });
-            },
-            error: function(xhr, status, error) {
-                console.error("Error loading households:", error);
             }
         });
     }
 
-    // --- 2. FUNCTION TO LOAD DASHBOARD STATS ---
-    function loadDashboardStats() {
-        $.ajax({
-            url: 'api/resident/get_resident_stats.php',
-            type: 'GET',
-            dataType: 'json',
-            success: function(data) {
-                $('#stats-total-households').text(data.total_households);
-                $('#stats-total-residents').text(data.total_residents);
-                $('#stats-affected-households').text(data.affected_households);
-                $('#stats-residents-evacuated').text(data.residents_evacuated);
-            },
-            error: function(xhr, status, error) {
-                console.error("Error loading resident stats:", error);
-            }
-        });
-    }
-
-    // --- 3. SUBMIT HANDLER FOR ADDING HOUSEHOLD ---
-    $('#add-household-form').on('submit', function(e) {
-        e.preventDefault();
-        var formData = $(this).serialize();
-
-        $.ajax({
-            url: 'api/resident/add_household.php',
-            type: 'POST',
-            data: formData,
-            dataType: 'json',
-            success: function(response) {
-                var messageDiv = $('#form-message');
-                if (response.success) {
-                    messageDiv.text(response.message).removeClass('text-red-400').addClass('text-green-400');
-                    $('#add-household-form')[0].reset(); // Clear the form
-                    loadHouseholds(); // Reload the table!
-                    loadDashboardStats(); // Reload stats
-                } else {
-                    messageDiv.text(response.message).removeClass('text-green-400').addClass('text-red-400');
-                }
-            },
-            error: function() {
-                $('#form-message').text('A system error occurred.').removeClass('text-green-400').addClass('text-red-400');
-            }
-        });
-    });
+    // Submit Handlers
+    $('#add-household-form').on('submit', function(e) { e.preventDefault(); submitForm('api/resident/add_household.php', $(this)); });
+    $('#edit-household-form').on('submit', function(e) { e.preventDefault(); submitForm('api/resident/update_household.php', $(this)); });
     
-    // --- 4. "DELETE" BUTTON HANDLER (UPDATED) ---
-    // This now just shows the modal
-    $('#households-table-body').on('click', '.delete-btn', function() {
-        var householdId = $(this).data('id');
-        var householdName = unescape($(this).data('name'));
+    function submitForm(url, form) {
+        $.ajax({ url: url, type: 'POST', data: form.serialize(), dataType: 'json',
+            success: function(res) { if(res.success) { alert(res.message || "Success!"); $('.fixed').addClass('hidden').removeClass('flex'); $('body').removeClass('overflow-hidden'); form[0].reset(); if(marker && map) { map.removeLayer(marker); marker = null; } loadHouseholds(); loadDashboardStats(); } else alert(res.message); }
+        });
+    }
 
-        // Set the modal's text and store the ID on the confirm button
-        deleteHouseholdName.text(householdName);
-        confirmDeleteBtn.data('id', householdId); // Store the ID
-        
-        // Show the modal
-        deleteModal.removeClass('hidden').addClass('flex');
-    });
-
-    // --- 5. "EDIT" BUTTON HANDLER (Show Modal) ---
-    $('#households-table-body').on('click', '.edit-btn', function() {
-        // Get data from the button's data-* attributes
-        var id = $(this).data('id');
-        var name = unescape($(this).data('name'));
-        var zone = unescape($(this).data('zone'));
-        var address = unescape($(this).data('address'));
-
-        // Pre-fill the modal's form
-        $('#edit_household_id').val(id);
-        $('#edit_head_name').val(name);
-        $('#edit_zone').val(zone);
-        $('#edit_address').val(address);
-        
-        editFormMessage.empty().removeClass('text-red-400 text-green-400');
-
-        // Show the modal
-        editModal.removeClass('hidden').addClass('flex');
-    });
-
-    // --- 6. "CLOSE EDIT MODAL" BUTTON HANDLER ---
-    $('.close-modal-btn').on('click', function() {
-        editModal.removeClass('flex').addClass('hidden');
-    });
-
-    // --- 7. "SAVE CHANGES" (SUBMIT EDIT FORM) HANDLER ---
-    $('#edit-household-form').on('submit', function(e) {
-        e.preventDefault();
-        var formData = $(this).serialize();
-        
-        $.ajax({
-            url: 'api/resident/update_household.php',
-            type: 'POST',
-            data: formData,
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    editFormMessage.text(response.message).removeClass('text-red-400').addClass('text-green-400');
-                    
-                    setTimeout(function() {
-                        editModal.removeClass('flex').addClass('hidden');
-                    }, 1000);
-                    
-                    loadHouseholds(); // Reload the table
-                } else {
-                    editFormMessage.text(response.message).removeClass('text-green-400').addClass('text-red-400');
-                }
-            },
-            error: function() {
-                editFormMessage.text('A system error occurred.').removeClass('text-green-400').addClass('text-red-400');
-            }
+    $('#confirm-delete-btn').on('click', function() {
+        $.ajax({ url: 'api/resident/delete_household.php', type: 'POST', data: { id: $(this).data('id') }, dataType: 'json',
+            success: function(res) { if(res.success) { $('#delete-confirm-modal').addClass('hidden').removeClass('flex'); loadHouseholds(); loadDashboardStats(); } else alert(res.message); }
         });
     });
 
+    function loadDashboardStats() {
+        $.ajax({ url: 'api/resident/get_resident_stats.php', type: 'GET', dataType: 'json',
+            success: function(d) { $('#stats-total-households').text(d.total_households); $('#stats-total-residents').text(d.total_residents); $('#stats-affected-households').text(d.affected_households); $('#stats-residents-evacuated').text(d.residents_evacuated); }
+        });
+    }
 
-    // --- 8. INITIAL PAGE LOAD ---
     loadHouseholds();
     loadDashboardStats();
-
-
-    // --- 9. NEW! DELETE CONFIRMATION HANDLERS ---
-    
-    // "Cancel" button on the delete modal
-    $('.close-delete-modal-btn').on('click', function() {
-        deleteModal.removeClass('flex').addClass('hidden');
-    });
-
-    // "Confirm Delete" button
-    $('#confirm-delete-btn').on('click', function() {
-        var householdId = $(this).data('id'); // Get the stored ID
-        
-        $.ajax({
-            url: 'api/resident/delete_household.php',
-            type: 'POST',
-            data: { id: householdId },
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    deleteModal.removeClass('flex').addClass('hidden');
-                    loadHouseholds(); // Reload the table
-                    loadDashboardStats(); // Reload stats
-                } else {
-                    alert('Error: ' + response.message);
-                }
-            },
-            error: function() {
-                alert('A system error occurred.');
-            }
-        });
-    });
-
 });
